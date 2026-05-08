@@ -1,8 +1,9 @@
 const express = require("express");
 const nodemailer = require("nodemailer");
 const router = express.Router();
+const authMiddleware = require("../config/authMiddleware");
 
-router.post("/send", async (req, res) => {
+router.post("/send", authMiddleware(["admin"]), async (req, res) => {
   const { to, subject, text } = req.body;
 
   const transporter = nodemailer.createTransport({

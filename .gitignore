@@ -1,0 +1,8 @@
+.env
+backend/.env
+backend/node_modules/
+frontend/node_modules/
+backend/*.log
+frontend/*.log
+backend/.meeting-agent/
+frontend/build/

@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "./api/api";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState("admin");
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -14,16 +15,18 @@ function Login() {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post("http://localhost:5000/auth/login", { email, password });
-      if (res.data === "Login success" || res.data?.token) {
-        localStorage.setItem("adminLoggedIn", "true");
-        localStorage.setItem("adminEmail", email);
-        navigate("/dashboard");
+      const endpoint = role === "admin" ? "/auth/admin/login" : "/auth/employee/login";
+      const res = await api.post(endpoint, { email, password });
+
+      if (res.data?.token) {
+        localStorage.setItem("meetmind_token", res.data.token);
+        localStorage.setItem("meetmind_user", JSON.stringify(res.data.user));
+        navigate(role === "admin" ? "/admin/dashboard" : "/employee/dashboard");
       } else {
-        setError(res.data || "Invalid credentials");
+        setError(res.data?.error || "Invalid credentials");
       }
     } catch (err) {
-      setError("Connection error. Please try again.");
+      setError(err.response?.data?.error || "Connection error. Please try again.");
     }
     setLoading(false);
   };
@@ -46,8 +49,36 @@ function Login() {
           <span style={styles.logoText}>MeetMind</span>
         </div>
 
-        <h1 style={styles.heading}>Admin Portal</h1>
-        <p style={styles.sub}>Sign in to manage your team and meeting reports</p>
+        {/* Role Toggle */}
+        <div style={styles.toggleWrap}>
+          <button
+            onClick={() => { setRole("admin"); setError(""); }}
+            style={{
+              ...styles.toggleBtn,
+              ...(role === "admin" ? styles.toggleActive : {}),
+            }}
+          >
+            👑 Admin
+          </button>
+          <button
+            onClick={() => { setRole("employee"); setError(""); }}
+            style={{
+              ...styles.toggleBtn,
+              ...(role === "employee" ? styles.toggleActiveEmployee : {}),
+            }}
+          >
+            👤 Employee
+          </button>
+        </div>
+
+        <h1 style={styles.heading}>
+          {role === "admin" ? "Admin Portal" : "Employee Portal"}
+        </h1>
+        <p style={styles.sub}>
+          {role === "admin"
+            ? "Sign in to manage your team and meeting summaries"
+            : "Sign in to view your meeting summaries and notifications"}
+        </p>
 
         <form onSubmit={handleLogin} style={styles.form}>
           <div style={styles.field}>
@@ -56,10 +87,10 @@ function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@company.com"
+              placeholder={role === "admin" ? "admin@company.com" : "you@company.com"}
               required
               style={styles.input}
-              onFocus={(e) => e.target.style.borderColor = "#00E5FF"}
+              onFocus={(e) => e.target.style.borderColor = role === "admin" ? "#00E5FF" : "#7C3AED"}
               onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
             />
           </div>
@@ -72,23 +103,40 @@ function Login() {
               placeholder="••••••••"
               required
               style={styles.input}
-              onFocus={(e) => e.target.style.borderColor = "#00E5FF"}
+              onFocus={(e) => e.target.style.borderColor = role === "admin" ? "#00E5FF" : "#7C3AED"}
               onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
             />
           </div>
 
           {error && <div style={styles.error}>{error}</div>}
 
-          <button type="submit" disabled={loading} style={styles.btn}
-            onMouseEnter={(e) => { if (!loading) { e.target.style.background = "#00b8cc"; e.target.style.transform = "translateY(-1px)"; }}}
-            onMouseLeave={(e) => { e.target.style.background = "#00E5FF"; e.target.style.transform = "translateY(0)"; }}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              ...styles.btn,
+              background: role === "admin" ? "#00E5FF" : "#7C3AED",
+              color: role === "admin" ? "#080C14" : "#fff",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.target.style.opacity = "0.85";
+                e.target.style.transform = "translateY(-1px)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.opacity = "1";
+              e.target.style.transform = "translateY(0)";
+            }}
           >
             {loading ? "Signing in..." : "Sign In →"}
           </button>
         </form>
 
         <div style={styles.hint}>
-          Default: admin@example.com / password123
+          {role === "admin"
+            ? "Default: admin@example.com / password123"
+            : "Use credentials provided by your admin"}
         </div>
       </div>
     </div>
@@ -138,7 +186,7 @@ const styles = {
     borderRadius: "20px",
     padding: "48px",
     width: "100%",
-    maxWidth: "420px",
+    maxWidth: "440px",
     backdropFilter: "blur(20px)",
     position: "relative",
     zIndex: 1,
@@ -147,18 +195,44 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    marginBottom: "32px",
+    marginBottom: "24px",
   },
-  logoIcon: {
-    display: "flex",
-    alignItems: "center",
-  },
+  logoIcon: { display: "flex", alignItems: "center" },
   logoText: {
     fontSize: "20px",
     fontWeight: "700",
     color: "#fff",
     letterSpacing: "-0.5px",
     fontFamily: "'DM Sans', sans-serif",
+  },
+  toggleWrap: {
+    display: "flex",
+    background: "rgba(255,255,255,0.05)",
+    borderRadius: "12px",
+    padding: "4px",
+    marginBottom: "24px",
+    gap: "4px",
+  },
+  toggleBtn: {
+    flex: 1,
+    padding: "10px 16px",
+    borderRadius: "8px",
+    border: "none",
+    background: "transparent",
+    color: "rgba(255,255,255,0.4)",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    fontFamily: "'DM Sans', sans-serif",
+  },
+  toggleActive: {
+    background: "rgba(0,229,255,0.15)",
+    color: "#00E5FF",
+  },
+  toggleActiveEmployee: {
+    background: "rgba(124,58,237,0.15)",
+    color: "#7C3AED",
   },
   heading: {
     color: "#fff",
@@ -196,8 +270,6 @@ const styles = {
     fontSize: "13px",
   },
   btn: {
-    background: "#00E5FF",
-    color: "#080C14",
     border: "none",
     borderRadius: "10px",
     padding: "14px",
